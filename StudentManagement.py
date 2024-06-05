@@ -15,7 +15,7 @@ class StudentInfoApp(QWidget):
         self.imageLabel = QLabel()
         self.imageLabel.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 
-        self.imageLabel.setPixmap(QPixmap("/Users/lengocquyen/Downloads/btl/ảnh.jpeg").scaled(200, 200, Qt.KeepAspectRatio))
+        self.imageLabel.setPixmap(QPixmap("pic.jpeg").scaled(100, 100, Qt.KeepAspectRatio))
 
         self.descriptionLabel = QLabel("QUẢN LÍ THÔNG TIN SINH VIÊN ĐẠI HỌC CÔNG NGHIỆP HÀ NỘI")
         self.descriptionLabel.setFont(QFont('Times New Roman', 31))
