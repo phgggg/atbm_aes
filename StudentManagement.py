@@ -1,12 +1,50 @@
+import os
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QHBoxLayout, \
     QTableWidget, QTableWidgetItem, QMessageBox
 from PyQt5.QtGui import QFont, QColor, QPixmap
 from PyQt5.QtCore import Qt
 import pyodbc
+from Cryptodome.Cipher import AES
+from Cryptodome.Random import get_random_bytes
+from Cryptodome.Protocol.KDF import PBKDF2
+from base64 import b64encode, b64decode
 
+# Thông tin kết nối cơ sở dữ liệu
 server = 'DESKTOP-2NFPMCV'  # Thay đổi thành tên máy chủ SQL Server trên máy bản thân
 database = 'QLSV'
+
+# Tạo hoặc đọc khóa AES từ tệp
+key_file = 'key.bin'
+# salt_file = 'salt.bin'
+
+if not os.path.exists(key_file):
+    key = get_random_bytes(32)
+    salt = get_random_bytes(16)
+    with open(key_file, 'wb') as f:
+        f.write(key)
+    # with open(salt_file, 'wb') as f:
+    #     f.write(salt)
+else:
+    with open(key_file, 'rb') as f:
+        key = f.read()
+    # with open(salt_file, 'rb') as f:
+        # salt = f.read()
+
+# Hàm mã hóa
+def encrypt_data(plaintext):
+    cipher = AES.new(key, AES.MODE_GCM)
+    ciphertext, tag = cipher.encrypt_and_digest(plaintext.encode('utf-8'))
+    return b64encode(cipher.nonce + tag + ciphertext).decode('utf-8')
+
+# Hàm giải mã
+def decrypt_data(ciphertext):
+    data = b64decode(ciphertext)
+    nonce = data[:16]
+    tag = data[16:32]
+    ciphertext = data[32:]
+    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
+    return cipher.decrypt_and_verify(ciphertext, tag).decode('utf-8')
 
 class StudentInfoApp(QWidget):
     def __init__(self):
@@ -18,7 +56,6 @@ class StudentInfoApp(QWidget):
         # Tạo các thành phần giao diện
         self.imageLabel = QLabel()
         self.imageLabel.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-
         self.imageLabel.setPixmap(QPixmap("pic.jpeg").scaled(100, 100, Qt.KeepAspectRatio))
 
         self.descriptionLabel = QLabel("QUẢN LÍ THÔNG TIN SINH VIÊN ĐẠI HỌC CÔNG NGHIỆP HÀ NỘI")
@@ -42,12 +79,6 @@ class StudentInfoApp(QWidget):
         self.classLabel.setStyleSheet("color: black;")
         self.classInput = QLineEdit()
         self.classInput.setStyleSheet("background-color: white; color: black;")
-
-        # self.subjectLabel = QLabel('Môn:')
-        # self.subjectLabel.setFont(QFont('Times New Roman', 14))
-        # self.subjectLabel.setStyleSheet("color: black;")
-        # self.subjectInput = QLineEdit()
-        # self.subjectInput.setStyleSheet("background-color: white; color: black;")
 
         self.editButton = QPushButton('Sửa sinh viên')
         self.editButton.setFont(QFont('Times New Roman', 14))
@@ -84,12 +115,8 @@ class StudentInfoApp(QWidget):
         self.table.setHorizontalHeaderLabels(['Tên', 'Mã sinh viên', 'Lớp'])
         self.table.setStyleSheet("background-color: white; color: black;")
         self.table.horizontalHeader().setStyleSheet("background-color: lightgray; color: black;")
-        # self.table.cellClicked.connect(self.deleteStudent)
+        self.table.setColumnWidth(0, 150)
 
-        # Chỉnh độ rộng cột "Tên"
-        self.table.setColumnWidth(0, 150)  # Đặt độ rộng của cột "Tên" là 150 pixels
-
-        # Sắp xếp giao diện
         formLayout = QHBoxLayout()
         formLayout.addWidget(self.nameLabel)
         formLayout.addWidget(self.nameInput)
@@ -97,14 +124,12 @@ class StudentInfoApp(QWidget):
         formLayout.addWidget(self.idInput)
         formLayout.addWidget(self.classLabel)
         formLayout.addWidget(self.classInput)
-        # formLayout.addWidget(self.subjectLabel)
-        # formLayout.addWidget(self.subjectInput)
         formLayout.addWidget(self.addButton)
         formLayout.addWidget(self.loadButton)
         formLayout.addWidget(self.sortButton)
-        formLayout.addWidget(self.exitButton)
         formLayout.addWidget(self.editButton)
         formLayout.addWidget(self.delButton)
+        formLayout.addWidget(self.exitButton)
 
         imageAndDescriptionLayout = QHBoxLayout()
         imageAndDescriptionLayout.addWidget(self.imageLabel)
@@ -123,13 +148,6 @@ class StudentInfoApp(QWidget):
     def initDB(self):
         self.conn = pyodbc.connect('DRIVER={ODBC Driver 17 for SQL Server};SERVER=' + server + ';DATABASE=' + database + ';Trusted_Connection=yes;')
         self.cursor = self.conn.cursor()
-        # self.cursor.execute('''
-        #     CREATE TABLE IF NOT EXISTS SinhVien (
-        #         maSinhVien VARCHAR(10) PRIMARY KEY,
-        #         tenSinhVien NVARCHAR(255),
-        #         lop NVARCHAR(50)
-        #     )
-        # ''')
         self.conn.commit()
 
     def addStudent(self):
@@ -147,9 +165,11 @@ class StudentInfoApp(QWidget):
                 msg.setStyleSheet("color: black;")
                 msg.exec_()
             else:
+                encrypted_tenSinhVien = encrypt_data(tenSinhVien)
+                encrypted_lop = encrypt_data(lop)
                 self.cursor.execute('''
                     INSERT INTO SinhVien (maSinhVien, tenSinhVien, lop) VALUES (?, ?, ?)
-                ''', (maSinhVien, tenSinhVien, lop))
+                ''', (maSinhVien, encrypted_tenSinhVien, encrypted_lop))
                 self.conn.commit()
 
                 self.idInput.clear()
@@ -163,18 +183,26 @@ class StudentInfoApp(QWidget):
         self.table.setRowCount(0)
         for row_number, row_data in enumerate(students):
             self.table.insertRow(row_number)
-            for column_number, data in enumerate(row_data):
-                self.table.setItem(row_number, column_number, QTableWidgetItem(str(data)))
+            maSinhVien, encrypted_tenSinhVien, encrypted_lop = row_data
+            tenSinhVien = decrypt_data(encrypted_tenSinhVien)
+            lop = decrypt_data(encrypted_lop)
+            self.table.setItem(row_number, 0, QTableWidgetItem(maSinhVien))
+            self.table.setItem(row_number, 1, QTableWidgetItem(tenSinhVien))
+            self.table.setItem(row_number, 2, QTableWidgetItem(lop))
 
     def sortStudentsByName(self):
-        self.cursor.execute('SELECT maSinhVien, tenSinhVien, lop FROM SinhVien ORDER BY tenSinhVien ASC')
-        students = self.cursor.fetchall()
+        self.cursor.execute('SELECT maSinhVien, tenSinhVien, lop FROM SinhVien')
+        students = sorted(self.cursor.fetchall(), key=lambda x: decrypt_data(x[1]))
 
         self.table.setRowCount(0)
         for row_number, row_data in enumerate(students):
             self.table.insertRow(row_number)
-            for column_number, data in enumerate(row_data):
-                self.table.setItem(row_number, column_number, QTableWidgetItem(str(data)))
+            maSinhVien, encrypted_tenSinhVien, encrypted_lop = row_data
+            tenSinhVien = decrypt_data(encrypted_tenSinhVien)
+            lop = decrypt_data(encrypted_lop)
+            self.table.setItem(row_number, 0, QTableWidgetItem(maSinhVien))
+            self.table.setItem(row_number, 1, QTableWidgetItem(tenSinhVien))
+            self.table.setItem(row_number, 2, QTableWidgetItem(lop))
 
     def deleteStudent(self):
         selected_items = self.table.selectedItems()
@@ -207,8 +235,10 @@ class StudentInfoApp(QWidget):
 
                 new_tenSinhVien, new_lop, ok = self.editStudentDialog(tenSinhVien, lop)
                 if ok:
+                    encrypted_tenSinhVien = encrypt_data(new_tenSinhVien)
+                    encrypted_lop = encrypt_data(new_lop)
                     self.cursor.execute('UPDATE SinhVien SET tenSinhVien = ?, lop = ? WHERE maSinhVien = ?',
-                                        (new_tenSinhVien, new_lop, maSinhVien))
+                                        (encrypted_tenSinhVien, encrypted_lop, maSinhVien))
                     self.conn.commit()
                     self.loadStudents()
 
@@ -225,7 +255,6 @@ class StudentInfoApp(QWidget):
 
     def closeEvent(self, event):
         self.conn.close()
-
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
