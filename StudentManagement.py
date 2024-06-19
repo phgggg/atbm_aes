@@ -243,42 +243,34 @@ class StudentInfoApp(QWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle('Chỉnh sửa thông tin sinh viên')
 
-        # Labels and LineEdits
         tenSinhVienLabel = QLabel("Tên SV:")
         edit_tenSinhVien = QLineEdit(tenSinhVien)
         lopLabel = QLabel("Lớp:")
         edit_lop = QLineEdit(lop)
 
-        # Buttons
         okButton = QPushButton("OK")
         cancelButton = QPushButton("Cancel")
 
-        # Connect buttons to dialog slots
         okButton.clicked.connect(dialog.accept)
         cancelButton.clicked.connect(dialog.reject)
 
-        # Layout for labels and line edits
         formLayout = QVBoxLayout()
         formLayout.addWidget(tenSinhVienLabel)
         formLayout.addWidget(edit_tenSinhVien)
         formLayout.addWidget(lopLabel)
         formLayout.addWidget(edit_lop)
 
-        # Layout for buttons
         buttonLayout = QHBoxLayout()
         buttonLayout.addWidget(okButton)
         buttonLayout.addWidget(cancelButton)
 
-        # Main layout
         mainLayout = QVBoxLayout()
         mainLayout.addLayout(formLayout)
         mainLayout.addLayout(buttonLayout)
 
         dialog.setLayout(mainLayout)
 
-        # Execute dialog and get the result
         result = dialog.exec_()
-
         return edit_tenSinhVien.text(), edit_lop.text(), result == QDialog.Accepted
 
     def closeEvent(self, event):
