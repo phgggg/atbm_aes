@@ -1,7 +1,6 @@
 import os
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QHBoxLayout, \
-    QTableWidget, QTableWidgetItem, QMessageBox
+from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QFont, QColor, QPixmap
 from PyQt5.QtCore import Qt
 import pyodbc
@@ -16,20 +15,17 @@ database = 'QLSV'
 
 # Tạo hoặc đọc khóa AES từ tệp
 key_file = 'key.bin'
-# salt_file = 'salt.bin'
 
 if not os.path.exists(key_file):
     key = get_random_bytes(32)
-    salt = get_random_bytes(16)
+
     with open(key_file, 'wb') as f:
         f.write(key)
-    # with open(salt_file, 'wb') as f:
-    #     f.write(salt)
+
 else:
     with open(key_file, 'rb') as f:
         key = f.read()
-    # with open(salt_file, 'rb') as f:
-        # salt = f.read()
+
 
 # Hàm mã hóa
 def encrypt_data(plaintext):
@@ -146,7 +142,8 @@ class StudentInfoApp(QWidget):
         self.setGeometry(100, 100, 1200, 600)
 
     def initDB(self):
-        self.conn = pyodbc.connect('DRIVER={ODBC Driver 17 for SQL Server};SERVER=' + server + ';DATABASE=' + database + ';Trusted_Connection=yes;')
+        self.conn = pyodbc.connect('DRIVER={ODBC Driver 17 for SQL Server};SERVER='
+                                   + server + ';DATABASE=' + database + ';Trusted_Connection=yes;')
         self.cursor = self.conn.cursor()
         self.conn.commit()
 
@@ -243,15 +240,46 @@ class StudentInfoApp(QWidget):
                     self.loadStudents()
 
     def editStudentDialog(self, tenSinhVien, lop):
-        dialog = QMessageBox()
-        dialog.setText("Tên Sinh Viên:")
+        dialog = QDialog(self)
+        dialog.setWindowTitle('Chỉnh sửa thông tin sinh viên')
+
+        # Labels and LineEdits
+        tenSinhVienLabel = QLabel("Tên SV:")
         edit_tenSinhVien = QLineEdit(tenSinhVien)
-        dialog.layout().addWidget(edit_tenSinhVien)
-        dialog.setText("Lớp:")
+        lopLabel = QLabel("Lớp:")
         edit_lop = QLineEdit(lop)
-        dialog.layout().addWidget(edit_lop)
-        ok = dialog.exec_()
-        return edit_tenSinhVien.text(), edit_lop.text(), ok == QMessageBox.Ok
+
+        # Buttons
+        okButton = QPushButton("OK")
+        cancelButton = QPushButton("Cancel")
+
+        # Connect buttons to dialog slots
+        okButton.clicked.connect(dialog.accept)
+        cancelButton.clicked.connect(dialog.reject)
+
+        # Layout for labels and line edits
+        formLayout = QVBoxLayout()
+        formLayout.addWidget(tenSinhVienLabel)
+        formLayout.addWidget(edit_tenSinhVien)
+        formLayout.addWidget(lopLabel)
+        formLayout.addWidget(edit_lop)
+
+        # Layout for buttons
+        buttonLayout = QHBoxLayout()
+        buttonLayout.addWidget(okButton)
+        buttonLayout.addWidget(cancelButton)
+
+        # Main layout
+        mainLayout = QVBoxLayout()
+        mainLayout.addLayout(formLayout)
+        mainLayout.addLayout(buttonLayout)
+
+        dialog.setLayout(mainLayout)
+
+        # Execute dialog and get the result
+        result = dialog.exec_()
+
+        return edit_tenSinhVien.text(), edit_lop.text(), result == QDialog.Accepted
 
     def closeEvent(self, event):
         self.conn.close()
