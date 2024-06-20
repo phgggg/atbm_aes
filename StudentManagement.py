@@ -157,7 +157,6 @@ class StudentInfoApp(QWidget):
         if maSinhVien and tenSinhVien and lop:
             self.cursor.execute('SELECT * FROM SinhVien WHERE maSinhVien = ?', (maSinhVien,))
             existing_student_id = self.cursor.fetchone()
-
             if existing_student_id:
                 msg = QMessageBox()
                 msg.setText('Mã sinh viên đã tồn tại. Vui lòng nhập lại.')
@@ -198,8 +197,8 @@ class StudentInfoApp(QWidget):
             maSinhVien, encrypted_tenSinhVien, encrypted_lop = row_data
             tenSinhVien = decrypt_data(encrypted_tenSinhVien)
             lop = decrypt_data(encrypted_lop)
-            self.table.setItem(row_number, 0, QTableWidgetItem(maSinhVien))
-            self.table.setItem(row_number, 1, QTableWidgetItem(tenSinhVien))
+            self.table.setItem(row_number, 1, QTableWidgetItem(maSinhVien))
+            self.table.setItem(row_number, 0, QTableWidgetItem(tenSinhVien))
             self.table.setItem(row_number, 2, QTableWidgetItem(lop))
 
     def deleteStudent(self):
