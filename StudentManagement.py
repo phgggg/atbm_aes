@@ -149,7 +149,9 @@ class StudentInfoApp(QWidget):
 
     def addStudent(self):
         maSinhVien = self.idInput.text()
+        print("masv " + maSinhVien)
         tenSinhVien = self.nameInput.text()
+        print("tensv " + tenSinhVien)
         lop = self.classInput.text()
 
         if maSinhVien and tenSinhVien and lop:
@@ -168,7 +170,6 @@ class StudentInfoApp(QWidget):
                     INSERT INTO SinhVien (maSinhVien, tenSinhVien, lop) VALUES (?, ?, ?)
                 ''', (maSinhVien, encrypted_tenSinhVien, encrypted_lop))
                 self.conn.commit()
-
                 self.idInput.clear()
                 self.nameInput.clear()
                 self.classInput.clear()
@@ -183,8 +184,8 @@ class StudentInfoApp(QWidget):
             maSinhVien, encrypted_tenSinhVien, encrypted_lop = row_data
             tenSinhVien = decrypt_data(encrypted_tenSinhVien)
             lop = decrypt_data(encrypted_lop)
-            self.table.setItem(row_number, 0, QTableWidgetItem(maSinhVien))
-            self.table.setItem(row_number, 1, QTableWidgetItem(tenSinhVien))
+            self.table.setItem(row_number, 0, QTableWidgetItem(tenSinhVien))
+            self.table.setItem(row_number, 1, QTableWidgetItem(maSinhVien))
             self.table.setItem(row_number, 2, QTableWidgetItem(lop))
 
     def sortStudentsByName(self):
@@ -205,7 +206,7 @@ class StudentInfoApp(QWidget):
         selected_items = self.table.selectedItems()
         if len(selected_items) > 0:
             row = selected_items[0].row()
-            maSinhVien_item = self.table.item(row, 0)
+            maSinhVien_item = self.table.item(row, 1)
             if maSinhVien_item:
                 maSinhVien = maSinhVien_item.text()
                 reply = QMessageBox.question(self, 'Xác nhận',
@@ -222,8 +223,8 @@ class StudentInfoApp(QWidget):
         selected_items = self.table.selectedItems()
         if len(selected_items) > 0:
             row = selected_items[0].row()
-            maSinhVien_item = self.table.item(row, 0)
-            tenSinhVien_item = self.table.item(row, 1)
+            maSinhVien_item = self.table.item(row, 1)
+            tenSinhVien_item = self.table.item(row, 0)
             lop_item = self.table.item(row, 2)
             if maSinhVien_item and tenSinhVien_item and lop_item:
                 maSinhVien = maSinhVien_item.text()
