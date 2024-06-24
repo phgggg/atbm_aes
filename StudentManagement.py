@@ -9,6 +9,7 @@ from Cryptodome.Random import get_random_bytes
 from Cryptodome.Protocol.KDF import PBKDF2
 from base64 import b64encode, b64decode
 from login import *
+
 status = 0
 
 # Thông tin kết nối cơ sở dữ liệu
@@ -106,6 +107,16 @@ class StudentInfoApp(QWidget):
         self.delButton.setStyleSheet("background-color: purple; color: white;")
         self.delButton.clicked.connect(self.deleteStudent)
 
+        self.InpButton = QPushButton('Nhập điểm')
+        self.InpButton.setFont(QFont('Times New Roman', 14))
+        self.InpButton.setStyleSheet("background-color: green; color: white;")
+        self.InpButton.clicked.connect(self.addRes)
+
+        self.ResultButton = QPushButton('Xem điểm')
+        self.ResultButton.setFont(QFont('Times New Roman', 14))
+        self.ResultButton.setStyleSheet("background-color: blue; color: white;")
+        self.ResultButton.clicked.connect(self.loadStudentsRes)
+
         self.exitButton = QPushButton('Thoát')
         self.exitButton.setFont(QFont('Times New Roman', 14))
         self.exitButton.setStyleSheet("background-color: red; color: white;")
@@ -117,6 +128,13 @@ class StudentInfoApp(QWidget):
         self.table.setStyleSheet("background-color: white; color: black;")
         self.table.horizontalHeader().setStyleSheet("background-color: lightgray; color: black;")
         self.table.setColumnWidth(0, 150)
+
+        self.tableres = QTableWidget()
+        self.tableres.setColumnCount(4)
+        self.tableres.setHorizontalHeaderLabels(['Tên', 'Mã sinh viên', 'Tên môn học', 'Điểm'])
+        self.tableres.setStyleSheet("background-color: white; color: black;")
+        self.tableres.horizontalHeader().setStyleSheet("background-color: lightgray; color: black;")
+        self.tableres.setColumnWidth(0, 150)
 
         formLayout = QHBoxLayout()
         formLayout.addWidget(self.nameLabel)
@@ -130,6 +148,8 @@ class StudentInfoApp(QWidget):
         formLayout.addWidget(self.sortButton)
         formLayout.addWidget(self.editButton)
         formLayout.addWidget(self.delButton)
+        formLayout.addWidget(self.InpButton)
+        formLayout.addWidget(self.ResultButton)
         formLayout.addWidget(self.exitButton)
 
         imageAndDescriptionLayout = QHBoxLayout()
@@ -140,6 +160,7 @@ class StudentInfoApp(QWidget):
         mainLayout.addLayout(imageAndDescriptionLayout)
         mainLayout.addLayout(formLayout)
         mainLayout.addWidget(self.table)
+        mainLayout.addWidget(self.tableres)
 
         self.setLayout(mainLayout)
         self.setWindowTitle('Quản lý thông tin sinh viên')
@@ -192,6 +213,29 @@ class StudentInfoApp(QWidget):
             self.table.setItem(row_number, 0, QTableWidgetItem(tenSinhVien))
             self.table.setItem(row_number, 1, QTableWidgetItem(maSinhVien))
             self.table.setItem(row_number, 2, QTableWidgetItem(lop))
+
+    def loadStudentsRes(self):
+        selected_items = self.table.selectedItems()
+        if len(selected_items) > 0:
+            row = selected_items[0].row()
+            maSV_item = self.table.item(row, 1)
+            if maSV_item:
+                msv = maSV_item.text()
+                self.cursor.execute('select dbo.SinhVien.maSinhVien, tenSinhVien, tenMonHoc, diem from dbo.SinhVien '
+                                    'join dbo.Diem on dbo.SinhVien.maSinhVien = dbo.Diem.maSinhVien '
+                                    'join MonHoc on dbo.Diem.maMonHoc = dbo.MonHoc.maMonHoc '
+                                    'where dbo.SinhVien.maSinhVien = ?', msv)
+                res = self.cursor.fetchall()
+                print(res)
+                self.tableres.setRowCount(0)
+                for row_number, row_data in enumerate(res):
+                    self.tableres.insertRow(row_number)
+                    maSinhVien, encrypted_tenSinhVien, tenMonHoc, Diem = row_data
+                    tenSinhVien = decrypt_data(encrypted_tenSinhVien)
+                    self.tableres.setItem(row_number, 0, QTableWidgetItem(tenSinhVien))
+                    self.tableres.setItem(row_number, 1, QTableWidgetItem(maSinhVien))
+                    self.tableres.setItem(row_number, 2, QTableWidgetItem(tenMonHoc))
+                    self.tableres.setItem(row_number, 3, QTableWidgetItem(str(Diem)))
 
     def sortStudentsByName(self):
         self.cursor.execute('SELECT maSinhVien, tenSinhVien, lop FROM SinhVien')
@@ -279,8 +323,78 @@ class StudentInfoApp(QWidget):
         result = dialog.exec_()
         return edit_tenSinhVien.text(), edit_lop.text(), result == QDialog.Accepted
 
+    def addRes(self):
+        msv, maMH, diem, ok = self.InpDialog()
+        if ok:
+            try:
+                # Chuyển đổi diem sang float nếu cần thiết
+                diem = float(diem)
+                self.cursor.execute("INSERT INTO dbo.diem (maSinhVien, maMonHoc, diem) VALUES (?, ?, ?)",
+                                    (msv, maMH, diem))
+                self.conn.commit()
+                print("Dữ liệu đã được thêm thành công.")
+            except ValueError:
+                print("Điểm phải là một số hợp lệ.")
+            except Exception as e:
+                print(f"Đã xảy ra lỗi: {e}")
+                try:
+                    self.cursor.execute("UPDATE [dbo].[Diem] SET [diem] = ? WHERE dbo.Diem.maSinhVien = ? and dbo.Diem.maMonHoc = ?",
+                                        (diem, msv, maMH))
+                    self.conn.commit()
+                except Exception as e:
+                    print(f"Đã xảy ra lỗi: {e}")
+
+    def InpDialog(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle('Nhập điểm')
+
+        # Initialize values
+        tenSinhVien = ""
+        mh = ""
+        diem = ""
+
+        # Create labels and line edits
+        msvLabel = QLabel("Mã SV:")
+        edit_msv = QLineEdit(tenSinhVien)
+        maMHLabel = QLabel("Mã môn học:")
+        edit_maMH = QLineEdit(mh)
+        DiemLabel = QLabel("Điểm:")
+        edit_Diem = QLineEdit(diem)
+
+        # Create buttons
+        okButton = QPushButton("OK")
+        cancelButton = QPushButton("Cancel")
+
+        # Connect buttons to dialog methods
+        okButton.clicked.connect(dialog.accept)
+        cancelButton.clicked.connect(dialog.reject)
+
+        # Create layouts and add widgets
+        formLayout = QVBoxLayout()
+        formLayout.addWidget(msvLabel)
+        formLayout.addWidget(edit_msv)
+        formLayout.addWidget(maMHLabel)
+        formLayout.addWidget(edit_maMH)
+        formLayout.addWidget(DiemLabel)
+        formLayout.addWidget(edit_Diem)
+
+        buttonLayout = QHBoxLayout()
+        buttonLayout.addWidget(okButton)
+        buttonLayout.addWidget(cancelButton)
+
+        mainLayout = QVBoxLayout()
+        mainLayout.addLayout(formLayout)
+        mainLayout.addLayout(buttonLayout)
+
+        dialog.setLayout(mainLayout)
+
+        # Execute dialog and return values
+        result = dialog.exec_()
+        return edit_msv.text(), edit_maMH.text(), edit_Diem.text(), result == QDialog.Accepted
+
     def closeEvent(self, event):
         self.conn.close()
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
