@@ -8,6 +8,8 @@ from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Protocol.KDF import PBKDF2
 from base64 import b64encode, b64decode
+from login import *
+status = 0
 
 # Thông tin kết nối cơ sở dữ liệu
 server = 'DESKTOP-2NFPMCV'  # Thay đổi thành tên máy chủ SQL Server trên máy bản thân
@@ -33,6 +35,7 @@ def encrypt_data(plaintext):
     ciphertext, tag = cipher.encrypt_and_digest(plaintext.encode('utf-8'))
     return b64encode(cipher.nonce + tag + ciphertext).decode('utf-8')
 
+
 # Hàm giải mã
 def decrypt_data(ciphertext):
     data = b64decode(ciphertext)
@@ -42,11 +45,13 @@ def decrypt_data(ciphertext):
     cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
     return cipher.decrypt_and_verify(ciphertext, tag).decode('utf-8')
 
+
 class StudentInfoApp(QWidget):
     def __init__(self):
         super().__init__()
         self.initUI()
         self.initDB()
+        self.loadStudents()
 
     def initUI(self):
         # Tạo các thành phần giao diện
@@ -168,10 +173,11 @@ class StudentInfoApp(QWidget):
                 self.cursor.execute('''
                     INSERT INTO SinhVien (maSinhVien, tenSinhVien, lop) VALUES (?, ?, ?)
                 ''', (maSinhVien, encrypted_tenSinhVien, encrypted_lop))
+
                 self.conn.commit()
-                self.idInput.clear()
-                self.nameInput.clear()
-                self.classInput.clear()
+                # self.idInput.clear()
+                # self.nameInput.clear()
+                # self.classInput.clear()
 
     def loadStudents(self):
         self.cursor.execute('SELECT maSinhVien, tenSinhVien, lop FROM SinhVien')
@@ -278,6 +284,17 @@ class StudentInfoApp(QWidget):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    ex = StudentInfoApp()
-    ex.show()
-    sys.exit(app.exec_())
+
+    password_app = PasswordApp()
+    password_app.show()
+    app.exec_()
+
+    if password_app.status == 1:
+        key = password_app.key.encode('utf-8', 'ignore') + password_app.key.encode('utf-8', 'ignore')
+        password_app.key = ""
+        print(password_app.key)
+        student_info_app = StudentInfoApp()
+        student_info_app.show()
+        sys.exit(app.exec_())
+    else:
+        sys.exit(0)
